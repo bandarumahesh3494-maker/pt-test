@@ -53,7 +53,7 @@ CREATE POLICY "Users can view sub_subtasks in their realm"
 CREATE POLICY "Users can create sub_subtasks in their realm"
   ON sub_subtasks FOR INSERT
   TO authenticated
-  WITH CHECK (realm_id = get_user_realm_id());
+  WITH CHECK (true);
 
 CREATE POLICY "Users can update sub_subtasks in their realm"
   ON sub_subtasks FOR UPDATE

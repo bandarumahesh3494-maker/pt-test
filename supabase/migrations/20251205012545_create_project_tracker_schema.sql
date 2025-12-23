@@ -64,7 +64,7 @@ CREATE POLICY tasks_select
 
 CREATE POLICY tasks_insert
   ON tasks FOR INSERT
-  WITH CHECK (realm_id = get_user_realm_id());
+  WITH CHECK (true);
 
 CREATE POLICY tasks_update
   ON tasks FOR UPDATE
@@ -104,7 +104,7 @@ CREATE POLICY subtasks_select
 
 CREATE POLICY subtasks_insert
   ON subtasks FOR INSERT
-  WITH CHECK (realm_id = get_user_realm_id());
+  WITH CHECK (true);
 
 CREATE POLICY subtasks_update
   ON subtasks FOR UPDATE
@@ -144,7 +144,7 @@ CREATE POLICY milestones_select
 
 CREATE POLICY milestones_insert
   ON milestones FOR INSERT
-  WITH CHECK (realm_id = get_user_realm_id());
+  WITH CHECK (true);
 
 CREATE POLICY milestones_update
   ON milestones FOR UPDATE

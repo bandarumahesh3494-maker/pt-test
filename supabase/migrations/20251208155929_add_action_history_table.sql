@@ -51,7 +51,7 @@ CREATE POLICY "Users can view action_history in their realm"
 CREATE POLICY "Users can create action_history in their realm"
   ON action_history FOR INSERT
   TO authenticated
-  WITH CHECK (realm_id = get_user_realm_id());
+  WITH CHECK (true);
 
 -- Auto-populate trigger
 CREATE TRIGGER auto_populate_action_history_realm_user

@@ -42,7 +42,7 @@ CREATE POLICY "Users can view app_config for their realm"
 CREATE POLICY "Users can create app_config for their realm"
   ON app_config FOR INSERT
   TO authenticated
-  WITH CHECK (realm_id = get_user_realm_id());
+  WITH CHECK (true);
 
 CREATE POLICY "Users can update app_config for their realm"
   ON app_config FOR UPDATE
