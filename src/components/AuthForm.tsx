@@ -6,8 +6,6 @@ export const AuthForm: React.FC = () => {
   const [isSignUp, setIsSignUp] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [fullName, setFullName] = useState('');
-  const [role, setRole] = useState<'user' | 'admin'>('user');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const { signIn, signUp } = useAuth();
@@ -19,7 +17,7 @@ export const AuthForm: React.FC = () => {
 
     try {
       if (isSignUp) {
-        await signUp(email, password, fullName, role);
+        await signUp(email, password);
       } else {
         await signIn(email, password);
       }
@@ -45,21 +43,6 @@ export const AuthForm: React.FC = () => {
         </h2>
 
         <form onSubmit={handleSubmit} className="space-y-4">
-          {isSignUp && (
-            <div>
-              <label className="block text-sm font-medium text-gray-300 mb-2">
-                Full Name
-              </label>
-              <input
-                type="text"
-                value={fullName}
-                onChange={(e) => setFullName(e.target.value)}
-                required
-                className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-          )}
-
           <div>
             <label className="block text-sm font-medium text-gray-300 mb-2">
               Email
@@ -86,22 +69,6 @@ export const AuthForm: React.FC = () => {
               className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
-
-          {isSignUp && (
-            <div>
-              <label className="block text-sm font-medium text-gray-300 mb-2">
-                Role
-              </label>
-              <select
-                value={role}
-                onChange={(e) => setRole(e.target.value as 'user' | 'admin')}
-                className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="user">User</option>
-                <option value="admin">Admin</option>
-              </select>
-            </div>
-          )}
 
           {error && (
             <div className="bg-red-900/50 border border-red-500 text-red-200 px-4 py-2 rounded-lg text-sm">

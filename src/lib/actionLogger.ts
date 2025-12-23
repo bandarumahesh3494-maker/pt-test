@@ -18,11 +18,16 @@ export const logAction = async ({
   entityId,
   entityName,
   details = {},
-  performedBy,
-  realm_id,
-  user_id
+  performedBy
 }: LogActionParams): Promise<void> => {
   try {
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (!user) {
+      console.error('No user found, cannot log action');
+      return;
+    }
+
     const { error } = await supabase.from('action_history').insert({
       action_type: actionType,
       entity_type: entityType,
@@ -30,8 +35,7 @@ export const logAction = async ({
       entity_name: entityName,
       details,
       performed_by: performedBy || null,
-      realm_id: realm_id,
-      user_id: realm_id
+      user_id: user.id
     });
 
     if (error) {

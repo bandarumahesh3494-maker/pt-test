@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { X } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { logAction } from '../lib/actionLogger';
+import { useAuth } from '../contexts/AuthContext';
 
 interface AddSubSubtaskModalProps {
   isOpen: boolean;
@@ -16,6 +17,7 @@ export const AddSubSubtaskModal: React.FC<AddSubSubtaskModalProps> = ({
   subtaskId,
   subtaskName
 }) => {
+  const { user } = useAuth();
   const [name, setName] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -27,6 +29,8 @@ export const AddSubSubtaskModal: React.FC<AddSubSubtaskModalProps> = ({
     setError('');
 
     try {
+      if (!user) throw new Error('User not authenticated');
+
       const { data: existingSubSubtasks } = await supabase
         .from('sub_subtasks')
         .select('order_index')
@@ -44,7 +48,7 @@ export const AddSubSubtaskModal: React.FC<AddSubSubtaskModalProps> = ({
           subtask_id: subtaskId,
           name,
           order_index: nextOrderIndex,
-          created_by: null
+          created_by: user.id
         })
         .select()
         .single();

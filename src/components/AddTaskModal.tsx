@@ -10,7 +10,7 @@ interface AddTaskModalProps {
 }
 
 export const AddTaskModal: React.FC<AddTaskModalProps> = ({ isOpen, onClose }) => {
-  const { currentRealm, user } = useAuth();
+  const { user } = useAuth();
   const [name, setName] = useState('');
   const [category, setCategory] = useState<'dev' | 'test' | 'infra' | 'support'>('dev');
   const [loading, setLoading] = useState(false);
@@ -23,15 +23,14 @@ export const AddTaskModal: React.FC<AddTaskModalProps> = ({ isOpen, onClose }) =
     setError('');
 
     try {
-      console.log('Creating task in realm1111111111111:', currentRealm);
+      if (!user) throw new Error('User not authenticated');
+
       const { data: taskData, error: insertError } = await supabase
         .from('tasks')
         .insert({
           name,
           category,
-          created_by: null,
-          realm_id: '6537704e-c58b-45f2-9b2f-7aa5ecea58c0' || null,
-          user_id: user.id || null,
+          created_by: user.id,
         })
         .select()
         .single();
@@ -40,9 +39,9 @@ export const AddTaskModal: React.FC<AddTaskModalProps> = ({ isOpen, onClose }) =
       if (!taskData) throw new Error('Failed to create task');
 
       const subtasksToCreate = [
-        { name: 'PLANNED', task_id: taskData.id, assigned_to: null, created_by: null, realm_id: null, user_id: null },
-        { name: 'subtask1', task_id: taskData.id, assigned_to: null, created_by: null, realm_id: null, user_id: null },
-        { name: 'subtask2', task_id: taskData.id, assigned_to: null, created_by: null, realm_id: null, user_id: null }
+        { name: 'PLANNED', task_id: taskData.id, assigned_to: null, created_by: user.id },
+        { name: 'subtask1', task_id: taskData.id, assigned_to: null, created_by: user.id },
+        { name: 'subtask2', task_id: taskData.id, assigned_to: null, created_by: user.id }
       ];
 
       const { error: subtasksError } = await supabase

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { X, Trash2 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { logAction } from '../lib/actionLogger';
+import { useAuth } from '../contexts/AuthContext';
 import { Milestone } from '../types';
 
 interface MilestoneModalProps {
@@ -25,6 +26,7 @@ export const MilestoneModal: React.FC<MilestoneModalProps> = ({
   existingMilestones,
   onDataChange
 }) => {
+  const { user } = useAuth();
   const [milestoneText, setMilestoneText] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -45,6 +47,8 @@ export const MilestoneModal: React.FC<MilestoneModalProps> = ({
     setError('');
 
     try {
+      if (!user) throw new Error('User not authenticated');
+
       const { data: milestoneData, error: insertError } = await supabase
         .from('milestones')
         .insert({
@@ -52,7 +56,7 @@ export const MilestoneModal: React.FC<MilestoneModalProps> = ({
           sub_subtask_id: subSubtaskId || null,
           milestone_date: date,
           milestone_text: milestoneText,
-          created_by: null
+          created_by: user.id
         })
         .select()
         .single();

@@ -21,8 +21,7 @@ export const Dashboard: React.FC = () => {
   const { groupedData, users, loading, error, refetch } = useTrackerData();
   const { colors } = useTheme();
   const { milestoneOptions, rowColors, loading: configLoading } = useConfig();
-  const { userProfile } = useAuth();
-  const isAdmin = userProfile?.role === 'admin';
+  const { user } = useAuth();
 
   const hexToRgba = (hex: string, alpha: number) => {
     const r = parseInt(hex.slice(1, 3), 16);
@@ -200,7 +199,8 @@ export const Dashboard: React.FC = () => {
 
   const handleAddMilestone = async (subtaskId: string | null, subSubtaskId: string | null, date: string, milestoneText: string) => {
     try {
-      // Add the milestone to the sub-subtask or subtask
+      if (!user) throw new Error('User not authenticated');
+
       const { data: milestoneData, error } = await supabase
         .from('milestones')
         .insert({
@@ -208,7 +208,7 @@ export const Dashboard: React.FC = () => {
           sub_subtask_id: subSubtaskId,
           milestone_date: date,
           milestone_text: milestoneText,
-          created_by: null
+          created_by: user.id
         })
         .select()
         .single();
@@ -321,7 +321,7 @@ export const Dashboard: React.FC = () => {
                     sub_subtask_id: null,
                     milestone_date: latestDate,
                     milestone_text: milestoneText,
-                    created_by: null
+                    created_by: user.id
                   });
               }
             }
@@ -547,9 +547,8 @@ export const Dashboard: React.FC = () => {
               {hideClosedTasks ? <Eye className="w-5 h-5" /> : <EyeOff className="w-5 h-5" />}
               {hideClosedTasks ? 'Show' : 'Hide'} CLOSED
             </button>
-            {isAdmin && (
-              <>
-                {/* <button
+            <>
+              {/* <button
                   onClick={() => setShowAddPerson(true)}
                   className="flex items-center gap-2 bg-green-600 hover:bg-green-700 px-4 py-2 rounded-lg transition-colors"
                 >
@@ -564,7 +563,6 @@ export const Dashboard: React.FC = () => {
                   Add Task
                 </button>
               </>
-            )}
           </div>
         </div>
       </header>
@@ -676,15 +674,13 @@ export const Dashboard: React.FC = () => {
                                 <Trash2 className="w-3 h-3" />
                               </button>
                             </div>
-                            {isAdmin && (
-                              <button
+                            <button
                                 onClick={() => setShowAddSubtask({ taskId: task.id, taskName: task.name })}
                                 className="text-blue-400 hover:text-blue-300 text-xs flex items-center gap-1 mt-2"
                               >
                                 <Plus className="w-3 h-3" />
                                 Add Subtask
                               </button>
-                            )}
                           </td>
                           <td className="sticky left-[300px] z-10 bg-gray-900 border border-gray-700 px-4 py-3">-</td>
                           <td className="sticky left-[450px] z-10 bg-gray-900 border border-gray-700 px-4 py-3">-</td>
@@ -740,15 +736,13 @@ export const Dashboard: React.FC = () => {
                                       <Trash2 className="w-3 h-3" />
                                     </button>
                                   </div>
-                                  {isAdmin && (
-                                    <button
+                                  <button
                                       onClick={() => setShowAddSubtask({ taskId: task.id, taskName: task.name })}
                                       className="text-blue-400 hover:text-blue-300 text-xs flex items-center gap-1 mt-2"
                                     >
                                       <Plus className="w-3 h-3" />
                                       Add Subtask
                                     </button>
-                                  )}
                                   {otherSubtasks.length > 0 && (
                                     <button
                                       onClick={() => toggleTaskSubtasks(task.id)}
@@ -760,21 +754,19 @@ export const Dashboard: React.FC = () => {
                                 </td>
                                 <td className="sticky left-[300px] z-10 border border-gray-700 px-4 py-3" style={{ backgroundColor: hexToRgba(rowColors.planned, rowColors.plannedOpacity) }}>
                                   <div>{plannedSubtask.subtask.name}</div>
-                                  {isAdmin && (
-                                    <button
+                                  <button
                                       onClick={() => setShowAddSubSubtask({ subtaskId: plannedSubtask.subtask.id, subtaskName: plannedSubtask.subtask.name })}
                                       className="text-blue-400 hover:text-blue-300 text-xs flex items-center gap-1 mt-1"
                                     >
                                       <Plus className="w-3 h-3" />
                                       Add Sub-Subtask
                                     </button>
-                                  )}
                                 </td>
                                 <td className="sticky left-[450px] z-10 border border-gray-700 px-2 py-3" style={{ backgroundColor: hexToRgba(rowColors.planned, rowColors.plannedOpacity) }}>
                                   <select
                                     value={plannedSubtask.subtask.assigned_to || ''}
                                     onChange={(e) => handleAssignmentChange(plannedSubtask.subtask.id, e.target.value || null)}
-                                    disabled={!isAdmin}
+                                    disabled={false}
                                     className="w-full bg-gray-700 border border-gray-600 text-white text-sm rounded px-2 py-1 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
                                   >
                                     <option value="">Unassigned</option>
@@ -860,7 +852,7 @@ export const Dashboard: React.FC = () => {
                                     <select
                                       value={sst.subSubtask.assigned_to || ''}
                                       onChange={(e) => handleSubSubtaskAssignmentChange(sst.subSubtask.id, e.target.value || null)}
-                                      disabled={!isAdmin}
+                                      disabled={false}
                                       className="w-full bg-gray-700 border border-gray-600 text-white text-sm rounded px-2 py-1 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
                                     >
                                       <option value="">Unassigned</option>
@@ -958,15 +950,13 @@ export const Dashboard: React.FC = () => {
                                       <Trash2 className="w-3 h-3" />
                                     </button>
                                   </div>
-                                  {isAdmin && (
-                                    <button
+                                  <button
                                       onClick={() => setShowAddSubtask({ taskId: task.id, taskName: task.name })}
                                       className="text-blue-400 hover:text-blue-300 text-xs flex items-center gap-1 mt-2"
                                     >
                                       <Plus className="w-3 h-3" />
                                       Add Subtask
                                     </button>
-                                  )}
                                   {otherSubtasks.length > 0 && (
                                     <button
                                       onClick={() => toggleTaskSubtasks(task.id)}
@@ -1016,21 +1006,19 @@ export const Dashboard: React.FC = () => {
                                       <Trash2 className="w-3 h-3" />
                                     </button>
                                   </div>
-                                  {isAdmin && (
-                                    <button
+                                  <button
                                       onClick={() => setShowAddSubSubtask({ subtaskId: st.subtask.id, subtaskName: st.subtask.name })}
                                       className="text-blue-400 hover:text-blue-300 text-xs flex items-center gap-1 mt-1"
                                     >
                                       <Plus className="w-3 h-3" />
                                       Add Sub-Subtask
                                     </button>
-                                  )}
                                 </td>
                                 <td className="sticky left-[450px] z-10 bg-gray-900 border border-gray-700 px-2 py-3">
                                   <select
                                     value={st.subtask.assigned_to || ''}
                                     onChange={(e) => handleAssignmentChange(st.subtask.id, e.target.value || null)}
-                                    disabled={!isAdmin}
+                                    disabled={false}
                                     className="w-full bg-gray-700 border border-gray-600 text-white text-sm rounded px-2 py-1 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
                                   >
                                     <option value="">Unassigned</option>
@@ -1115,7 +1103,7 @@ export const Dashboard: React.FC = () => {
                                     <select
                                       value={sst.subSubtask.assigned_to || ''}
                                       onChange={(e) => handleSubSubtaskAssignmentChange(sst.subSubtask.id, e.target.value || null)}
-                                      disabled={!isAdmin}
+                                      disabled={false}
                                       className="w-full bg-gray-700 border border-gray-600 text-white text-sm rounded px-2 py-1 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
                                     >
                                       <option value="">Unassigned</option>
