@@ -193,19 +193,7 @@ else
 
     # List of migrations in order
     MIGRATIONS=(
-        "20251205012545_create_project_tracker_schema.sql"
-        "20251205014639_add_sub_subtasks.sql"
-        "20251205162645_add_config_table.sql"
-        "20251205163623_add_opacity_to_row_colors.sql"
-        "20251205163758_add_priority_to_tasks.sql"
-        "20251205164252_add_category_colors_config.sql"
-        "20251205181308_add_assigned_to_sub_subtasks.sql"
-        "20251205181909_add_category_opacity_config.sql"
-        "20251205204421_fix_milestones_sub_subtask_constraint.sql"
-        "20251208155929_add_action_history_table.sql"
-        "20251209015123_update_user_roles_to_user_admin_fixed.sql"
-        "20251222000000_realm_based_project_tracker.sql"
-        "20251223000000_fix_realm_auto_creation.sql"
+        "20251223125004_realm_based_project_tracker_complete.sql"
     )
 
     APPLIED=0
