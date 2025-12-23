@@ -1,0 +1,507 @@
+import React, { useState, useMemo } from 'react';
+import { Plus, Calendar, Check, UserPlus } from 'lucide-react';
+import { supabase } from '../lib/supabase';
+import { useTrackerData } from '../hooks/useTrackerData';
+import { AddTaskModal } from './AddTaskModal';
+import { AddSubtaskModal } from './AddSubtaskModal';
+import { AddSubSubtaskModal } from './AddSubSubtaskModal';
+import { MilestoneModal } from './MilestoneModal';
+import { AddPersonModal } from './AddPersonModal';
+
+const MILESTONE_OPTIONS = [
+  { value: 'planned', label: 'PLANNED' },
+  { value: 'dev-complete', label: 'Dev Complete' },
+  { value: 'dev-merge-done', label: 'Dev Merge Done' },
+  { value: 'staging-merge-done', label: 'Staging Merge Done' },
+  { value: 'prod-merge-done', label: 'Prod Merge Done' },
+  { value: 'check', label: '✓' }
+];
+
+export const Dashboard: React.FC = () => {
+  const { groupedData, users, loading, error } = useTrackerData();
+  const [showAddTask, setShowAddTask] = useState(false);
+  const [showAddPerson, setShowAddPerson] = useState(false);
+  const [showAddSubtask, setShowAddSubtask] = useState<{ taskId: string; taskName: string } | null>(null);
+  const [showAddSubSubtask, setShowAddSubSubtask] = useState<{ subtaskId: string; subtaskName: string } | null>(null);
+  const [showMilestone, setShowMilestone] = useState<{
+    subtaskId?: string;
+    subSubtaskId?: string;
+    subtaskName: string;
+    date: string;
+  } | null>(null);
+  const [openDropdown, setOpenDropdown] = useState<string | null>(null);
+  const [hiddenTaskSubtasks, setHiddenTaskSubtasks] = useState<Set<string>>(new Set());
+
+  const dateRange = useMemo(() => {
+    const dates: string[] = [];
+    const today = new Date();
+    for (let i = -7; i <= 30; i++) {
+      const date = new Date(today);
+      date.setDate(today.getDate() + i);
+      dates.push(date.toISOString().split('T')[0]);
+    }
+    return dates;
+  }, []);
+
+  const formatDateHeader = (dateStr: string) => {
+    const date = new Date(dateStr);
+    const day = date.getDate();
+    const month = date.toLocaleDateString('en-US', { month: 'short' });
+    return `${day}-${month}`;
+  };
+
+  const getCategoryColor = (category: string) => {
+    switch (category) {
+      case 'dev': return 'bg-green-700/30 border-green-600';
+      case 'test': return 'bg-blue-700/30 border-blue-600';
+      case 'infra': return 'bg-yellow-700/30 border-yellow-600';
+      case 'support': return 'bg-orange-700/30 border-orange-600';
+      default: return 'bg-gray-700/30 border-gray-600';
+    }
+  };
+
+  const getMilestoneColor = (milestoneText: string) => {
+    if (milestoneText === 'PLANNED') {
+      return 'bg-blue-500 border-blue-400 text-white font-semibold';
+    }
+    return 'bg-blue-900/50 border border-blue-600';
+  };
+
+  const handleCategoryChange = async (taskId: string, newCategory: string) => {
+    try {
+      const { error } = await supabase
+        .from('tasks')
+        .update({ category: newCategory, updated_at: new Date().toISOString() })
+        .eq('id', taskId);
+
+      if (error) throw error;
+    } catch (err) {
+      console.error('Error updating category:', err);
+    }
+  };
+
+  const handleAssignmentChange = async (subtaskId: string, userId: string | null) => {
+    try {
+      const { error } = await supabase
+        .from('subtasks')
+        .update({ assigned_to: userId, updated_at: new Date().toISOString() })
+        .eq('id', subtaskId);
+
+      if (error) throw error;
+    } catch (err) {
+      console.error('Error updating assignment:', err);
+    }
+  };
+
+  const handleAddMilestone = async (subtaskId: string | null, subSubtaskId: string | null, date: string, milestoneText: string) => {
+    try {
+      const { error } = await supabase
+        .from('milestones')
+        .insert({
+          subtask_id: subtaskId,
+          sub_subtask_id: subSubtaskId,
+          milestone_date: date,
+          milestone_text: milestoneText,
+          created_by: null
+        });
+
+      if (error) throw error;
+    } catch (err) {
+      console.error('Error adding milestone:', err);
+    }
+  };
+
+  const toggleTaskSubtasks = (taskId: string) => {
+    setHiddenTaskSubtasks(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(taskId)) {
+        newSet.delete(taskId);
+      } else {
+        newSet.add(taskId);
+      }
+      return newSet;
+    });
+  };
+
+  const calculateActualMilestones = (subtasks: any[]) => {
+    const actualMilestones: { [date: string]: string } = {};
+
+    subtasks.forEach(st => {
+      if (st.subtask.name.toUpperCase() !== 'PLANNED') {
+        st.milestones.forEach((m: any) => {
+          if (!actualMilestones[m.milestone_date] ||
+              (m.milestone_text !== 'PLANNED' && actualMilestones[m.milestone_date] === 'PLANNED')) {
+            actualMilestones[m.milestone_date] = m.milestone_text;
+          }
+        });
+
+        st.subSubtasks?.forEach((sst: any) => {
+          sst.milestones.forEach((m: any) => {
+            if (!actualMilestones[m.milestone_date] ||
+                (m.milestone_text !== 'PLANNED' && actualMilestones[m.milestone_date] === 'PLANNED')) {
+              actualMilestones[m.milestone_date] = m.milestone_text;
+            }
+          });
+        });
+      }
+    });
+
+    return actualMilestones;
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-900 flex items-center justify-center">
+        <div className="text-white text-xl">Loading...</div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gray-900 flex items-center justify-center">
+        <div className="text-red-400 text-xl">Error: {error}</div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-gray-900 text-white">
+      <header className="bg-gray-800 border-b border-gray-700 px-6 py-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <Calendar className="w-8 h-8 text-blue-500" />
+            <h1 className="text-2xl font-bold">Project Tracker</h1>
+          </div>
+          <div className="flex gap-3">
+            <button
+              onClick={() => setShowAddPerson(true)}
+              className="flex items-center gap-2 bg-green-600 hover:bg-green-700 px-4 py-2 rounded-lg transition-colors"
+            >
+              <UserPlus className="w-5 h-5" />
+              Add Engineer/Lead
+            </button>
+            <button
+              onClick={() => setShowAddTask(true)}
+              className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded-lg transition-colors"
+            >
+              <Plus className="w-5 h-5" />
+              Add Task
+            </button>
+          </div>
+        </div>
+      </header>
+
+      <div className="p-6">
+        <div className="overflow-x-auto">
+          <div className="inline-block min-w-full">
+            <table className="w-full border-collapse">
+              <thead>
+                <tr className="bg-gray-800">
+                  <th className="sticky left-0 z-20 bg-gray-800 border border-gray-700 px-4 py-3 text-left font-semibold min-w-[120px]">
+                    Category
+                  </th>
+                  <th className="sticky left-[120px] z-20 bg-gray-800 border border-gray-700 px-4 py-3 text-left font-semibold min-w-[180px]">
+                    Task Name
+                  </th>
+                  <th className="sticky left-[300px] z-20 bg-gray-800 border border-gray-700 px-4 py-3 text-left font-semibold min-w-[150px]">
+                    Sub Task
+                  </th>
+                  <th className="sticky left-[450px] z-20 bg-gray-800 border border-gray-700 px-4 py-3 text-left font-semibold min-w-[150px]">
+                    Engineer/Lead
+                  </th>
+                  {dateRange.map(date => (
+                    <th
+                      key={date}
+                      className="border border-gray-700 px-3 py-3 text-center font-semibold min-w-[120px] bg-gray-800"
+                    >
+                      {formatDateHeader(date)}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {groupedData.map(({ task, subtasks }) => (
+                  <React.Fragment key={task.id}>
+                    {subtasks.length === 0 ? (
+                      <tr className="hover:bg-gray-800/50">
+                        <td className={`sticky left-0 z-10 border border-gray-700 px-2 py-3 ${getCategoryColor(task.category)}`}>
+                          <select
+                            value={task.category}
+                            onChange={(e) => handleCategoryChange(task.id, e.target.value)}
+                            className="w-full bg-transparent border-none text-white font-medium uppercase focus:outline-none focus:ring-2 focus:ring-blue-500 rounded px-2 py-1"
+                          >
+                            <option value="dev" className="bg-gray-800">DEV</option>
+                            <option value="test" className="bg-gray-800">TEST</option>
+                            <option value="infra" className="bg-gray-800">INFRA</option>
+                            <option value="support" className="bg-gray-800">SUPPORT</option>
+                          </select>
+                        </td>
+                        <td className="sticky left-[120px] z-10 bg-gray-900 border border-gray-700 px-4 py-3 font-medium">
+                          {task.name}
+                        </td>
+                        <td className="sticky left-[300px] z-10 bg-gray-900 border border-gray-700 px-4 py-3">
+                          <button
+                            onClick={() => setShowAddSubtask({ taskId: task.id, taskName: task.name })}
+                            className="text-blue-400 hover:text-blue-300 text-sm flex items-center gap-1"
+                          >
+                            <Plus className="w-4 h-4" />
+                            Add Subtask
+                          </button>
+                        </td>
+                        <td className="sticky left-[450px] z-10 bg-gray-900 border border-gray-700 px-4 py-3">
+                          -
+                        </td>
+                        {dateRange.map(date => (
+                          <td key={date} className="border border-gray-700 px-3 py-2 bg-gray-900"></td>
+                        ))}
+                      </tr>
+                    ) : (
+                      <>
+                        {subtasks.map((st, idx) => {
+                          const totalRows = subtasks.reduce((acc, s) => acc + 1 + s.subSubtasks.length, 0);
+                          let currentRowIndex = 0;
+                          for (let i = 0; i < idx; i++) {
+                            currentRowIndex += 1 + subtasks[i].subSubtasks.length;
+                          }
+
+                          return (
+                            <React.Fragment key={st.subtask.id}>
+                              <tr className="hover:bg-gray-800/50">
+                                {currentRowIndex === 0 && (
+                                  <>
+                                    <td
+                                      rowSpan={totalRows}
+                                      className={`sticky left-0 z-10 border border-gray-700 px-2 py-3 ${getCategoryColor(task.category)}`}
+                                    >
+                                      <select
+                                        value={task.category}
+                                        onChange={(e) => handleCategoryChange(task.id, e.target.value)}
+                                        className="w-full bg-transparent border-none text-white font-medium uppercase focus:outline-none focus:ring-2 focus:ring-blue-500 rounded px-2 py-1"
+                                      >
+                                        <option value="dev" className="bg-gray-800">DEV</option>
+                                        <option value="test" className="bg-gray-800">TEST</option>
+                                        <option value="infra" className="bg-gray-800">INFRA</option>
+                                        <option value="support" className="bg-gray-800">SUPPORT</option>
+                                      </select>
+                                    </td>
+                                    <td
+                                      rowSpan={totalRows}
+                                      className="sticky left-[120px] z-10 bg-gray-900 border border-gray-700 px-4 py-3"
+                                    >
+                                      <div className="font-medium">{task.name}</div>
+                                      <button
+                                        onClick={() => setShowAddSubtask({ taskId: task.id, taskName: task.name })}
+                                        className="text-blue-400 hover:text-blue-300 text-xs flex items-center gap-1 mt-2"
+                                      >
+                                        <Plus className="w-3 h-3" />
+                                        Add Subtask
+                                      </button>
+                                    </td>
+                                  </>
+                                )}
+                                <td className="sticky left-[300px] z-10 bg-gray-900 border border-gray-700 px-4 py-3">
+                                  <div>{st.subtask.name}</div>
+                                  <button
+                                    onClick={() => setShowAddSubSubtask({ subtaskId: st.subtask.id, subtaskName: st.subtask.name })}
+                                    className="text-blue-400 hover:text-blue-300 text-xs flex items-center gap-1 mt-1"
+                                  >
+                                    <Plus className="w-3 h-3" />
+                                    Add Sub-Subtask
+                                  </button>
+                                </td>
+                                <td className="sticky left-[450px] z-10 bg-gray-900 border border-gray-700 px-2 py-3">
+                                  <select
+                                    value={st.subtask.assigned_to || ''}
+                                    onChange={(e) => handleAssignmentChange(st.subtask.id, e.target.value || null)}
+                                    className="w-full bg-gray-700 border border-gray-600 text-white text-sm rounded px-2 py-1 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                  >
+                                    <option value="">Unassigned</option>
+                                    {users.map(u => (
+                                      <option key={u.id} value={u.id}>
+                                        {u.full_name} ({u.role})
+                                      </option>
+                                    ))}
+                                  </select>
+                                </td>
+                                {dateRange.map(date => {
+                                  const milestonesForDate = st.milestones.filter(m => m.milestone_date === date);
+
+                                  return (
+                                    <td
+                                      key={date}
+                                      className="border border-gray-700 px-2 py-2 bg-gray-900 align-top"
+                                    >
+                                      <div className="space-y-1">
+                                        {milestonesForDate.map(milestone => (
+                                          <div
+                                            key={milestone.id}
+                                            onClick={() => setShowMilestone({
+                                              subtaskId: st.subtask.id,
+                                              subtaskName: st.subtask.name,
+                                              date
+                                            })}
+                                            className={`text-xs px-2 py-1 rounded cursor-pointer hover:opacity-80 ${getMilestoneColor(milestone.milestone_text)}`}
+                                          >
+                                            {milestone.milestone_text}
+                                          </div>
+                                        ))}
+                                        {openDropdown === `subtask-${st.subtask.id}-${date}` ? (
+                                          <select
+                                            autoFocus
+                                            onChange={(e) => {
+                                              if (e.target.value) {
+                                                handleAddMilestone(st.subtask.id, null, date, e.target.value);
+                                                setOpenDropdown(null);
+                                              }
+                                            }}
+                                            onBlur={() => setOpenDropdown(null)}
+                                            className="w-full bg-gray-700 border border-gray-600 text-white text-xs rounded px-1 py-1 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                          >
+                                            <option value="">Select...</option>
+                                            {MILESTONE_OPTIONS.map(option => (
+                                              <option key={option.value} value={option.label}>
+                                                {option.label}
+                                              </option>
+                                            ))}
+                                          </select>
+                                        ) : (
+                                          <button
+                                            onClick={() => setOpenDropdown(`subtask-${st.subtask.id}-${date}`)}
+                                            className="w-6 h-6 bg-gray-700 hover:bg-gray-600 border border-gray-600 text-white text-xs rounded flex items-center justify-center"
+                                          >
+                                            +
+                                          </button>
+                                        )}
+                                      </div>
+                                    </td>
+                                  );
+                                })}
+                              </tr>
+                              {st.subSubtasks.map(sst => (
+                                <tr key={sst.subSubtask.id} className="hover:bg-gray-800/50 bg-gray-900/50">
+                                  <td className="sticky left-[300px] z-10 bg-gray-800 border border-gray-700 px-4 py-3 pl-8">
+                                    <span className="text-gray-400">↳</span> {sst.subSubtask.name}
+                                  </td>
+                                  <td className="sticky left-[450px] z-10 bg-gray-800 border border-gray-700 px-2 py-3 text-gray-500 text-xs">
+                                    -
+                                  </td>
+                                  {dateRange.map(date => {
+                                    const milestonesForDate = sst.milestones.filter(m => m.milestone_date === date);
+
+                                    return (
+                                      <td
+                                        key={date}
+                                        className="border border-gray-700 px-2 py-2 bg-gray-800 align-top"
+                                      >
+                                        <div className="space-y-1">
+                                          {milestonesForDate.map(milestone => (
+                                            <div
+                                              key={milestone.id}
+                                              onClick={() => setShowMilestone({
+                                                subSubtaskId: sst.subSubtask.id,
+                                                subtaskName: `${st.subtask.name} → ${sst.subSubtask.name}`,
+                                                date
+                                              })}
+                                              className={`text-xs px-2 py-1 rounded cursor-pointer hover:opacity-80 ${getMilestoneColor(milestone.milestone_text)}`}
+                                            >
+                                              {milestone.milestone_text}
+                                            </div>
+                                          ))}
+                                          {openDropdown === `subsubtask-${sst.subSubtask.id}-${date}` ? (
+                                            <select
+                                              autoFocus
+                                              onChange={(e) => {
+                                                if (e.target.value) {
+                                                  handleAddMilestone(null, sst.subSubtask.id, date, e.target.value);
+                                                  setOpenDropdown(null);
+                                                }
+                                              }}
+                                              onBlur={() => setOpenDropdown(null)}
+                                              className="w-full bg-gray-700 border border-gray-600 text-white text-xs rounded px-1 py-1 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                            >
+                                              <option value="">Select...</option>
+                                              {MILESTONE_OPTIONS.map(option => (
+                                                <option key={option.value} value={option.label}>
+                                                  {option.label}
+                                                </option>
+                                              ))}
+                                            </select>
+                                          ) : (
+                                            <button
+                                              onClick={() => setOpenDropdown(`subsubtask-${sst.subSubtask.id}-${date}`)}
+                                              className="w-6 h-6 bg-gray-700 hover:bg-gray-600 border border-gray-600 text-white text-xs rounded flex items-center justify-center"
+                                            >
+                                              +
+                                            </button>
+                                          )}
+                                        </div>
+                                      </td>
+                                    );
+                                  })}
+                                </tr>
+                              ))}
+                            </React.Fragment>
+                          );
+                        })}
+                      </>
+                    )}
+                  </React.Fragment>
+                ))}
+                {groupedData.length === 0 && (
+                  <tr>
+                    <td colSpan={4 + dateRange.length} className="text-center py-8 text-gray-400">
+                      No tasks yet. Click "Add Task" to get started.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <AddTaskModal isOpen={showAddTask} onClose={() => setShowAddTask(false)} />
+      <AddPersonModal isOpen={showAddPerson} onClose={() => setShowAddPerson(false)} />
+
+      {showAddSubtask && (
+        <AddSubtaskModal
+          isOpen={true}
+          onClose={() => setShowAddSubtask(null)}
+          taskId={showAddSubtask.taskId}
+          taskName={showAddSubtask.taskName}
+          users={users}
+        />
+      )}
+
+      {showAddSubSubtask && (
+        <AddSubSubtaskModal
+          isOpen={true}
+          onClose={() => setShowAddSubSubtask(null)}
+          subtaskId={showAddSubSubtask.subtaskId}
+          subtaskName={showAddSubSubtask.subtaskName}
+        />
+      )}
+
+      {showMilestone && (
+        <MilestoneModal
+          isOpen={true}
+          onClose={() => setShowMilestone(null)}
+          subtaskId={showMilestone.subtaskId}
+          subtaskName={showMilestone.subtaskName}
+          date={showMilestone.date}
+          existingMilestones={
+            showMilestone.subtaskId
+              ? groupedData
+                  .flatMap(g => g.subtasks)
+                  .find(st => st.subtask.id === showMilestone.subtaskId)?.milestones || []
+              : groupedData
+                  .flatMap(g => g.subtasks)
+                  .flatMap(st => st.subSubtasks)
+                  .find(sst => sst.subSubtask.id === showMilestone.subSubtaskId)?.milestones || []
+          }
+        />
+      )}
+    </div>
+  );
+};
