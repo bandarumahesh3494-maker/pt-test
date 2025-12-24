@@ -6,6 +6,10 @@ interface UserProfile {
   id: string;
   email: string;
   full_name: string | null;
+  realm_id: string | null;
+  role: 'superadmin' | 'admin' | 'user';
+  is_active: boolean;
+  state: string;
 }
 
 interface AuthContextType {
@@ -56,7 +60,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       const { data, error } = await supabase
         .from('profiles')
-        .select('id, email, full_name')
+        .select('id, email, full_name, realm_id, role, is_active, state')
         .eq('id', userId)
         .maybeSingle();
 

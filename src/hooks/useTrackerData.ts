@@ -11,7 +11,7 @@ import {
 import { useAuth } from '../contexts/AuthContext';
 
 export const useTrackerData = () => {
-  const { currentRealm } = useAuth();
+  const { userProfile } = useAuth();
 
   const [user, setUser] = useState<any>(null);
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -23,12 +23,6 @@ export const useTrackerData = () => {
   const [error, setError] = useState<string | null>(null);
 
   const fetchData = async () => {
-    // 🛑 HARD GUARD: wait for realm
-    if (!currentRealm?.id) {
-      console.log('[Tracker] Waiting for currentRealm...');
-      return;
-    }
-
     try {
       setLoading(true);
       setError(null);
@@ -45,8 +39,6 @@ export const useTrackerData = () => {
 
       setUser(user);
 
-      console.log('[Tracker] Fetching data for realm:', currentRealm.id);
-
       const [
         tasksRes,
         subtasksRes,
@@ -61,10 +53,7 @@ export const useTrackerData = () => {
           .select('*')
           .order('order_index', { ascending: true }),
         supabase.from('milestones').select('*'),
-        supabase
-          .from('profiles')
-          .select('*')
-          .eq('realm_id', currentRealm.id)
+        supabase.from('profiles').select('*')
       ]);
 
       if (tasksRes.error) throw tasksRes.error;
@@ -87,7 +76,7 @@ export const useTrackerData = () => {
   };
 
   useEffect(() => {
-    if (!currentRealm?.id) return;
+    if (!userProfile) return;
 
     fetchData();
 
@@ -98,12 +87,13 @@ export const useTrackerData = () => {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'subtasks' }, fetchData)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'sub_subtasks' }, fetchData)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'milestones' }, fetchData)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, fetchData)
       .subscribe();
 
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [currentRealm?.id]);
+  }, [userProfile?.id]);
 
   const groupedData: GroupedData[] = tasks.map(task => ({
     task,

@@ -24,6 +24,18 @@ export const HistoryDashboard: React.FC = () => {
 
   useEffect(() => {
     fetchHistory();
+
+    const channel = supabase.channel('action_history_changes');
+
+    channel
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'action_history' }, () => {
+        fetchHistory();
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, []);
 
   const fetchHistory = async () => {
