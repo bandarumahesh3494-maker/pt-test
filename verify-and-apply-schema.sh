@@ -193,7 +193,7 @@ else
 
     # List of migrations in order
     MIGRATIONS=(
-        "20251223125004_realm_based_project_tracker_complete.sql"
+        "20251224034853_complete_project_tracker_schema.sql"
     )
 
     APPLIED=0
